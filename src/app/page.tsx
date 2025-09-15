@@ -4,28 +4,46 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UploadCard } from '@/components/UploadCard';
+import { ChunkedUploadCard } from '@/components/ChunkedUploadCard';
 import { FileText, Zap, Shield } from 'lucide-react';
 
 export default function HomePage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [notesFilePath, setNotesFilePath] = useState<string>('');
+  const [assetsFilePath, setAssetsFilePath] = useState<string>('');
+  const [processingOptions, setProcessingOptions] = useState<{ clusteringK: number | 'auto'; groupingStrategy: string }>({
+    clusteringK: 'auto',
+    groupingStrategy: 'cluster'
+  });
 
-  const handleUpload = async (data: { notesZip: File; assetsZip?: File; options: { clusteringK: number | 'auto'; groupingStrategy: string } }) => {
+  const handleNotesUploadComplete = (filePath: string, fileName: string) => {
+    setNotesFilePath(filePath);
+  };
+
+  const handleAssetsUploadComplete = (filePath: string, fileName: string) => {
+    setAssetsFilePath(filePath);
+  };
+
+  const handleProcessFiles = async () => {
+    if (!notesFilePath) {
+      alert('Please upload your notes ZIP file first.');
+      return;
+    }
+
     setIsLoading(true);
     
     try {
-      const formData = new FormData();
-      formData.append('notesZip', data.notesZip);
-      if (data.assetsZip) {
-        formData.append('assetsZip', data.assetsZip);
-      }
-      formData.append('clusteringK', data.options.clusteringK.toString());
-      formData.append('groupingStrategy', data.options.groupingStrategy);
-
-      const response = await fetch('/api/jobs', {
+      const response = await fetch('/api/jobs/process', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          notesFilePath,
+          assetsFilePath: assetsFilePath || null,
+          options: processingOptions
+        }),
       });
 
       if (!response.ok) {
@@ -35,8 +53,8 @@ export default function HomePage() {
       const { jobId } = await response.json();
       router.push(`/job/${jobId}`);
     } catch (error) {
-      console.error('Upload failed:', error);
-      alert('Upload failed. Please try again.');
+      console.error('Processing failed:', error);
+      alert('Processing failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -134,12 +152,91 @@ export default function HomePage() {
               Upload your Markdown notes and assets to get started
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <UploadCard
-              onUpload={handleUpload}
-              onSampleData={handleSampleData}
+          <CardContent className="space-y-6">
+            {/* Notes Upload */}
+            <ChunkedUploadCard
+              type="notes"
+              onUploadComplete={handleNotesUploadComplete}
+              onSampleData={() => {}}
               isLoading={isLoading}
             />
+
+            {/* Assets Upload */}
+            <ChunkedUploadCard
+              type="assets"
+              onUploadComplete={handleAssetsUploadComplete}
+              onSampleData={() => {}}
+              isLoading={isLoading}
+            />
+
+            {/* Processing Options */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Processing Options</CardTitle>
+                <CardDescription>
+                  Configure how your notes should be organized
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Clustering K (number of sections)
+                  </label>
+                  <select
+                    value={processingOptions.clusteringK}
+                    onChange={(e) => setProcessingOptions({
+                      ...processingOptions,
+                      clusteringK: e.target.value === 'auto' ? 'auto' : parseInt(e.target.value)
+                    })}
+                    className="w-full p-2 border rounded-md bg-background"
+                  >
+                    <option value="auto">Auto (recommended)</option>
+                    <option value="3">3 sections</option>
+                    <option value="4">4 sections</option>
+                    <option value="5">5 sections</option>
+                    <option value="6">6 sections</option>
+                    <option value="8">8 sections</option>
+                    <option value="10">10 sections</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Grouping Strategy
+                  </label>
+                  <select
+                    value={processingOptions.groupingStrategy}
+                    onChange={(e) => setProcessingOptions({
+                      ...processingOptions,
+                      groupingStrategy: e.target.value
+                    })}
+                    className="w-full p-2 border rounded-md bg-background"
+                  >
+                    <option value="cluster">Cluster by content similarity</option>
+                    <option value="headings">Group by first heading</option>
+                    <option value="tags">Group by first tag</option>
+                  </select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Action Buttons */}
+            <div className="flex gap-4">
+              <Button
+                onClick={handleProcessFiles}
+                disabled={!notesFilePath || isLoading}
+                className="flex-1"
+              >
+                {isLoading ? 'Processing...' : 'Process Notes'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleSampleData}
+                disabled={isLoading}
+              >
+                Try Sample Data
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
