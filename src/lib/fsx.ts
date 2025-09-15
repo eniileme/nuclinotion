@@ -56,8 +56,8 @@ export async function cleanupExpiredJobs(): Promise<number> {
         }
       }
     }
-  } catch (error) {
-    console.warn('Failed to cleanup expired jobs:', error);
+  } catch {
+    console.warn('Failed to cleanup expired jobs');
   }
   
   return cleanedCount;
