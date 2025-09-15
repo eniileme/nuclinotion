@@ -72,7 +72,13 @@ export class ChunkedUploader {
     });
 
     if (!initiateResponse.ok) {
-      throw new Error('Failed to initiate upload');
+      const errorText = await initiateResponse.text();
+      console.error('Upload initiation failed:', {
+        status: initiateResponse.status,
+        statusText: initiateResponse.statusText,
+        error: errorText
+      });
+      throw new Error(`Failed to initiate upload: ${initiateResponse.status} ${initiateResponse.statusText}`);
     }
 
     // Upload each chunk
@@ -89,7 +95,13 @@ export class ChunkedUploader {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to upload chunk ${i + 1}/${chunks.length}`);
+        const errorText = await response.text();
+        console.error(`Chunk ${i + 1} upload failed:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
+        throw new Error(`Failed to upload chunk ${i + 1}/${chunks.length}: ${response.status} ${response.statusText}`);
       }
 
       onProgress({
