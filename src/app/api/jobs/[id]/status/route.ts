@@ -7,14 +7,21 @@ export async function GET(
 ) {
   try {
     const { id: jobId } = await params;
+    
+    console.log(`Checking status for job: ${jobId}`);
+    console.log(`Available jobs:`, Array.from(jobStatuses.keys()));
+    
     const status = jobStatuses.get(jobId);
     
     if (!status) {
+      console.log(`Job ${jobId} not found in jobStatuses map`);
       return NextResponse.json(
-        { error: 'Job not found' },
+        { error: 'Job not found', jobId, availableJobs: Array.from(jobStatuses.keys()) },
         { status: 404 }
       );
     }
+    
+    console.log(`Found status for job ${jobId}:`, status);
     
     return NextResponse.json(status, {
       headers: {

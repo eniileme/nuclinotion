@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
     });
     
     console.log(`Job ${jobId} created successfully, returning jobId`);
+    console.log(`Current jobStatuses map:`, Array.from(jobStatuses.keys()));
     
     return NextResponse.json({ jobId });
     
