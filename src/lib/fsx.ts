@@ -124,10 +124,24 @@ export async function buildAssetIndex(assetsDir: string): Promise<AssetIndex> {
   };
   
   if (!await directoryExists(assetsDir)) {
+    console.log('Assets directory does not exist:', assetsDir);
     return index;
   }
   
-  await scanDirectory(assetsDir, '', index);
+  console.log('Building asset index for:', assetsDir);
+  let processedDirs = 0;
+  let processedFiles = 0;
+  
+  await scanDirectory(assetsDir, '', index, (dirs, files) => {
+    processedDirs = dirs;
+    processedFiles = files;
+    // Log progress every 100 directories or 1000 files
+    if (dirs % 100 === 0 || files % 1000 === 0) {
+      console.log(`Asset indexing progress: ${dirs} directories, ${files} files`);
+    }
+  });
+  
+  console.log(`Asset indexing complete: ${processedDirs} directories, ${processedFiles} files`);
   return index;
 }
 
@@ -137,9 +151,13 @@ export async function buildAssetIndex(assetsDir: string): Promise<AssetIndex> {
 async function scanDirectory(
   dirPath: string, 
   relativePath: string, 
-  index: AssetIndex
-): Promise<void> {
+  index: AssetIndex,
+  progressCallback?: (dirs: number, files: number) => void
+): Promise<{ dirs: number, files: number }> {
   const entries = await fs.readdir(dirPath, { withFileTypes: true });
+  
+  let dirCount = 1; // Count this directory
+  let fileCount = 0;
   
   for (const entry of entries) {
     const fullPath = path.join(dirPath, entry.name);
@@ -151,13 +169,18 @@ async function scanDirectory(
       
       if (isUuidDir) {
         // This is a note-specific asset directory
-        await scanDirectory(fullPath, '', index);
+        const subResult = await scanDirectory(fullPath, '', index, progressCallback);
+        dirCount += subResult.dirs;
+        fileCount += subResult.files;
       } else {
         // Regular subdirectory
-        await scanDirectory(fullPath, entryRelativePath, index);
+        const subResult = await scanDirectory(fullPath, entryRelativePath, index, progressCallback);
+        dirCount += subResult.dirs;
+        fileCount += subResult.files;
       }
     } else {
       // It's a file
+      fileCount++;
       const stats = await fs.stat(fullPath);
       const assetFile: AssetFile = {
         filename: entry.name.toLowerCase(),
@@ -183,7 +206,19 @@ async function scanDirectory(
       // Add to filename index
       index.byFilename.set(entry.name.toLowerCase(), assetFile);
     }
+    
+    // Call progress callback periodically
+    if (progressCallback && (dirCount % 50 === 0 || fileCount % 500 === 0)) {
+      progressCallback(dirCount, fileCount);
+    }
   }
+  
+  // Final progress callback
+  if (progressCallback) {
+    progressCallback(dirCount, fileCount);
+  }
+  
+  return { dirs: dirCount, files: fileCount };
 }
 
 /**
