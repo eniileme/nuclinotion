@@ -26,18 +26,18 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Validate file size (300MB limit)
-    const maxSize = 300 * 1024 * 1024; // 300MB
+    // Validate file size (50MB limit for Vercel)
+    const maxSize = 50 * 1024 * 1024; // 50MB
     if (notesZip.size > maxSize) {
       return NextResponse.json(
-        { error: 'Notes ZIP file is too large. Maximum size is 300MB.' },
+        { error: 'Notes ZIP file is too large. Maximum size is 50MB for Vercel deployment.' },
         { status: 400 }
       );
     }
     
     if (assetsZip && assetsZip.size > maxSize) {
       return NextResponse.json(
-        { error: 'Assets ZIP file is too large. Maximum size is 300MB.' },
+        { error: 'Assets ZIP file is too large. Maximum size is 50MB for Vercel deployment.' },
         { status: 400 }
       );
     }

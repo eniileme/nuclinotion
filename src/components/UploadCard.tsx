@@ -130,6 +130,9 @@ export function UploadCard({ onUpload, onSampleData, isLoading }: UploadCardProp
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Drag and drop your notes ZIP file here, or click to browse
                 </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Maximum file size: 50MB
+                </p>
                 <Input
                   type="file"
                   accept=".zip"
@@ -189,6 +192,9 @@ export function UploadCard({ onUpload, onSampleData, isLoading }: UploadCardProp
                 <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Drag and drop your assets ZIP file here, or click to browse
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Maximum file size: 50MB
                 </p>
                 <Input
                   type="file"
