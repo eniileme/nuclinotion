@@ -26,7 +26,7 @@ export function ChunkedUploadCard({
   const [uploadMethod, setUploadMethod] = useState<'regular' | 'chunked'>('regular');
   const [dragOver, setDragOver] = useState<boolean>(false);
 
-  const isLargeFile = file && file.size > 50 * 1024 * 1024; // 50MB threshold
+  const isLargeFile = file && file.size > 10 * 1024 * 1024; // 10MB threshold for chunked upload
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -137,7 +137,7 @@ export function ChunkedUploadCard({
                   onChange={(e) => setUploadMethod(e.target.value as 'regular')}
                   disabled={isLargeFile || false}
                 />
-                <span className="text-sm">Regular (up to 50MB)</span>
+                <span className="text-sm">Regular (up to 10MB)</span>
               </label>
               <label className="flex items-center gap-2">
                 <input

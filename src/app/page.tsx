@@ -168,7 +168,7 @@ export default function HomePage() {
                   Notes (.zip)
                 </CardTitle>
                 <CardDescription>
-                  Upload your markdown files (up to 50MB)
+                  Upload your markdown files (up to 10MB)
                 </CardDescription>
               </CardHeader>
               <CardContent>

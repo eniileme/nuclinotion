@@ -14,7 +14,7 @@ export interface UploadProgress {
 }
 
 export class ChunkedUploader {
-  private chunkSize = 10 * 1024 * 1024; // 10MB chunks
+  private chunkSize = 2 * 1024 * 1024; // 2MB chunks (safer for Vercel)
   private uploadId: string;
 
   constructor(uploadId?: string) {
