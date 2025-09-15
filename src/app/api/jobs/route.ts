@@ -59,8 +59,24 @@ export async function POST(request: NextRequest) {
     const pipeline = new ProcessingPipeline();
     const jobId = pipeline.getJobId();
     
+    console.log(`Creating job ${jobId} with files:`, {
+      notesSize: notesZip.size,
+      notesName: notesZip.name,
+      assetsSize: assetsZip?.size || 0,
+      assetsName: assetsZip?.name || 'none',
+      options
+    });
+    
     // Store initial status
-    jobStatuses.set(jobId, pipeline.getStatus());
+    const initialStatus = {
+      status: 'processing',
+      progress: 0,
+      currentStep: 'initializing',
+      createdAt: new Date().toISOString()
+    };
+    jobStatuses.set(jobId, initialStatus);
+    
+    console.log(`Job ${jobId} status initialized:`, jobStatuses.get(jobId));
     
     // Start processing in background
     processJob(pipeline, notesZip, assetsZip, options).catch(error => {
@@ -70,10 +86,12 @@ export async function POST(request: NextRequest) {
         jobStatuses.set(jobId, {
           ...status,
           status: 'error',
-          error: error.message
+          error: error instanceof Error ? error.message : String(error)
         });
       }
     });
+    
+    console.log(`Job ${jobId} created successfully, returning jobId`);
     
     return NextResponse.json({ jobId });
     
