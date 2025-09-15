@@ -19,6 +19,13 @@ export async function POST(request: NextRequest) {
     const clusteringK = formData.get('clusteringK') as string;
     const groupingStrategy = formData.get('groupingStrategy') as string;
     
+    console.log('Received files:', {
+      notesZip: notesZip?.name,
+      notesZipSize: notesZip?.size,
+      assetsZip: assetsZip?.name,
+      assetsZipSize: assetsZip?.size
+    });
+    
     if (!notesZip) {
       return NextResponse.json(
         { error: 'Notes ZIP file is required' },
@@ -98,18 +105,28 @@ async function processJob(
     const notesZipPath = path.join(tempDir, 'notes.zip');
     const assetsZipPath = assetsZip ? path.join(tempDir, 'assets.zip') : null;
     
+    console.log(`Job ${jobId}: Starting file processing`, {
+      notesSize: notesZip.size,
+      assetsSize: assetsZip?.size,
+      tempDir
+    });
+    
     // Write notes ZIP
     const notesBuffer = await notesZip.arrayBuffer();
     await writeFile(notesZipPath, Buffer.from(notesBuffer));
+    console.log(`Job ${jobId}: Notes ZIP saved to ${notesZipPath}`);
     
     // Write assets ZIP if provided
     if (assetsZip && assetsZipPath) {
       const assetsBuffer = await assetsZip.arrayBuffer();
       await writeFile(assetsZipPath, Buffer.from(assetsBuffer));
+      console.log(`Job ${jobId}: Assets ZIP saved to ${assetsZipPath}`);
     }
     
     // Process the job
+    console.log(`Job ${jobId}: Starting pipeline processing`);
     await pipeline.process(notesZipPath, assetsZipPath, options);
+    console.log(`Job ${jobId}: Pipeline processing completed`);
     
   } catch (error) {
     console.error(`Job ${jobId} processing failed:`, error);

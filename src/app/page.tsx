@@ -4,21 +4,22 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { UploadCard } from '@/components/UploadCard';
 import { ChunkedUploadCard } from '@/components/ChunkedUploadCard';
 import { FileText, Zap, Shield } from 'lucide-react';
 
 export default function HomePage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [notesFilePath, setNotesFilePath] = useState<string>('');
+  const [notesFile, setNotesFile] = useState<File | null>(null);
   const [assetsFilePath, setAssetsFilePath] = useState<string>('');
   const [processingOptions, setProcessingOptions] = useState<{ clusteringK: number | 'auto'; groupingStrategy: string }>({
     clusteringK: 'auto',
     groupingStrategy: 'cluster'
   });
 
-  const handleNotesUploadComplete = (filePath: string, fileName: string) => {
-    setNotesFilePath(filePath);
+  const handleNotesUpload = (file: File) => {
+    setNotesFile(file);
   };
 
   const handleAssetsUploadComplete = (filePath: string, fileName: string) => {
@@ -26,7 +27,7 @@ export default function HomePage() {
   };
 
   const handleProcessFiles = async () => {
-    if (!notesFilePath) {
+    if (!notesFile) {
       alert('Please upload your notes ZIP file first.');
       return;
     }
@@ -34,27 +35,33 @@ export default function HomePage() {
     setIsLoading(true);
     
     try {
-      const response = await fetch('/api/jobs/process', {
+      // Create FormData for regular notes upload
+      const formData = new FormData();
+      formData.append('notesZip', notesFile);
+      if (assetsFilePath) {
+        // For chunked assets, we need to read the file and add it to FormData
+        const response = await fetch(assetsFilePath);
+        const blob = await response.blob();
+        formData.append('assetsZip', blob, 'assets.zip');
+      }
+      formData.append('clusteringK', processingOptions.clusteringK.toString());
+      formData.append('groupingStrategy', processingOptions.groupingStrategy);
+
+      const response = await fetch('/api/jobs', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          notesFilePath,
-          assetsFilePath: assetsFilePath || null,
-          options: processingOptions
-        }),
+        body: formData,
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create job');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create job');
       }
 
       const { jobId } = await response.json();
       router.push(`/job/${jobId}`);
     } catch (error) {
       console.error('Processing failed:', error);
-      alert('Processing failed. Please try again.');
+      alert(`Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -153,15 +160,37 @@ export default function HomePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Notes Upload */}
-            <ChunkedUploadCard
-              type="notes"
-              onUploadComplete={handleNotesUploadComplete}
-              onSampleData={() => {}}
-              isLoading={isLoading}
-            />
+            {/* Notes Upload - Regular Upload */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Notes (.zip)
+                </CardTitle>
+                <CardDescription>
+                  Upload your markdown files (up to 50MB)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <input
+                  type="file"
+                  accept=".zip"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleNotesUpload(file);
+                  }}
+                  className="w-full p-2 border rounded-md"
+                  disabled={isLoading}
+                />
+                {notesFile && (
+                  <div className="mt-2 text-sm text-gray-600">
+                    Selected: {notesFile.name} ({(notesFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-            {/* Assets Upload */}
+            {/* Assets Upload - Chunked Upload for Large Files */}
             <ChunkedUploadCard
               type="assets"
               onUploadComplete={handleAssetsUploadComplete}
@@ -224,7 +253,7 @@ export default function HomePage() {
             <div className="flex gap-4">
               <Button
                 onClick={handleProcessFiles}
-                disabled={!notesFilePath || isLoading}
+                disabled={!notesFile || isLoading}
                 className="flex-1"
               >
                 {isLoading ? 'Processing...' : 'Process Notes'}
