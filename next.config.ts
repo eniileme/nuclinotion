@@ -1,14 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ['unzipper'],
-  },
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb',
-    },
-  },
+  serverExternalPackages: ['unzipper'],
+  // For App Router API routes, we handle size limits in the route handlers
 };
 
 export default nextConfig;
