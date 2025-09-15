@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
+import { mkdir } from 'fs/promises';
 import path from 'path';
 
 interface InitiateRequest {
@@ -16,12 +16,23 @@ export async function POST(request: NextRequest) {
   try {
     const body: InitiateRequest = await request.json();
     
+    console.log('Initiating upload:', {
+      uploadId: body.uploadId,
+      fileName: body.fileName,
+      fileSize: body.fileSize,
+      totalChunks: body.totalChunks
+    });
+    
     // Create upload directory
     const uploadDir = path.join('/tmp', 'uploads', body.uploadId);
-    await writeFile(path.join(uploadDir, '.gitkeep'), '');
+    await mkdir(uploadDir, { recursive: true });
+    
+    console.log('Upload directory created:', uploadDir);
     
     // Store metadata
     uploadMetadata.set(body.uploadId, body);
+    
+    console.log('Upload metadata stored, total uploads:', uploadMetadata.size);
     
     return NextResponse.json({ 
       success: true, 
@@ -32,7 +43,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Failed to initiate upload:', error);
     return NextResponse.json(
-      { error: 'Failed to initiate upload' },
+      { error: `Failed to initiate upload: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
     );
   }
