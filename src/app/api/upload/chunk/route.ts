@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
     const metadataStr = formData.get('metadata') as string;
     
     if (!chunk || !metadataStr) {
+      console.error('Missing chunk or metadata in upload request');
       return NextResponse.json(
         { error: 'Missing chunk or metadata' },
         { status: 400 }
@@ -19,8 +20,11 @@ export async function POST(request: NextRequest) {
     
     const metadata: ChunkMetadata = JSON.parse(metadataStr);
     
+    console.log(`Uploading chunk ${metadata.chunkIndex + 1}/${metadata.totalChunks} for upload ${metadata.uploadId}`);
+    
     // Verify upload exists
     if (!uploadMetadata.has(metadata.uploadId)) {
+      console.error('Upload not found:', metadata.uploadId);
       return NextResponse.json(
         { error: 'Upload not found' },
         { status: 404 }
@@ -36,6 +40,8 @@ export async function POST(request: NextRequest) {
     const chunkBuffer = await chunk.arrayBuffer();
     await writeFile(chunkPath, Buffer.from(chunkBuffer));
     
+    console.log(`Chunk ${metadata.chunkIndex} saved to ${chunkPath}`);
+    
     return NextResponse.json({ 
       success: true, 
       chunkIndex: metadata.chunkIndex,
@@ -45,7 +51,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Failed to upload chunk:', error);
     return NextResponse.json(
-      { error: 'Failed to upload chunk' },
+      { error: `Failed to upload chunk: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
     );
   }

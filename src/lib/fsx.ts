@@ -128,20 +128,52 @@ export async function buildAssetIndex(assetsDir: string): Promise<AssetIndex> {
     return index;
   }
   
-  console.log('Building asset index for:', assetsDir);
-  let processedDirs = 0;
+  console.log('Building asset index for flat structure:', assetsDir);
   let processedFiles = 0;
   
-  await scanDirectory(assetsDir, '', index, (dirs, files) => {
-    processedDirs = dirs;
-    processedFiles = files;
-    // Log progress every 100 directories or 1000 files
-    if (dirs % 100 === 0 || files % 1000 === 0) {
-      console.log(`Asset indexing progress: ${dirs} directories, ${files} files`);
-    }
-  });
+  // For flat structure, just scan the root directory
+  const entries = await fs.readdir(assetsDir, { withFileTypes: true });
   
-  console.log(`Asset indexing complete: ${processedDirs} directories, ${processedFiles} files`);
+  for (const entry of entries) {
+    if (entry.isFile()) {
+      const fullPath = path.join(assetsDir, entry.name);
+      const stats = await fs.stat(fullPath);
+      const filename = entry.name.toLowerCase();
+      
+      // Extract UUID from filename if present
+      const uuidMatch = entry.name.match(/([a-f0-9]{6,})/i);
+      const noteId = uuidMatch ? uuidMatch[1] : undefined;
+      
+      const assetFile: AssetFile = {
+        filename,
+        path: fullPath,
+        size: stats.size,
+        noteId
+      };
+      
+      // Index by filename
+      index.byFilename.set(filename, assetFile);
+      
+      // Index by note ID if UUID found
+      if (noteId) {
+        if (!index.byNoteId.has(noteId)) {
+          index.byNoteId.set(noteId, []);
+        }
+        index.byNoteId.get(noteId)!.push(assetFile);
+      } else {
+        index.unassigned.push(assetFile);
+      }
+      
+      processedFiles++;
+      
+      // Log progress every 1000 files
+      if (processedFiles % 1000 === 0) {
+        console.log(`Asset indexing progress: ${processedFiles} files processed`);
+      }
+    }
+  }
+  
+  console.log(`Asset indexing complete: ${processedFiles} files, ${index.byNoteId.size} note-specific assets`);
   return index;
 }
 
