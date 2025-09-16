@@ -23,11 +23,18 @@ async function writeLog(message: string) {
 // File-based job status storage (since serverless functions don't share memory)
 const JOBS_DIR = '/tmp/jobs';
 
+// In-memory fallback for serverless function isolation issues
+const inMemoryJobStatuses = new Map<string, any>();
+
 async function saveJobStatus(jobId: string, status: any) {
   try {
     console.log(`=== SAVE JOB STATUS START ===`);
     console.log(`Job ID: ${jobId}`);
     console.log(`Status object:`, JSON.stringify(status, null, 2));
+    
+    // Store in memory first (for immediate access)
+    inMemoryJobStatuses.set(jobId, status);
+    console.log(`Stored job status in memory for ${jobId}`);
     
     console.log(`Creating directory: ${JOBS_DIR}`);
     await mkdir(JOBS_DIR, { recursive: true });
@@ -71,6 +78,12 @@ async function loadJobStatus(jobId: string): Promise<any | null> {
     console.log(`=== LOAD JOB STATUS START ===`);
     console.log(`Job ID: ${jobId}`);
     
+    // First, try in-memory storage (for same function instance)
+    if (inMemoryJobStatuses.has(jobId)) {
+      console.log(`Found job status in memory for ${jobId}`);
+      return inMemoryJobStatuses.get(jobId);
+    }
+    
     const statusPath = path.join(JOBS_DIR, `${jobId}_status.json`);
     console.log(`Looking for status file at: ${statusPath}`);
     
@@ -96,8 +109,12 @@ async function loadJobStatus(jobId: string): Promise<any | null> {
     
     const parsed = JSON.parse(statusData);
     console.log(`Status parsed successfully:`, parsed);
-    console.log(`=== LOAD JOB STATUS SUCCESS ===`);
     
+    // Store in memory for future requests
+    inMemoryJobStatuses.set(jobId, parsed);
+    console.log(`Stored job status in memory for ${jobId}`);
+    
+    console.log(`=== LOAD JOB STATUS SUCCESS ===`);
     return parsed;
   } catch (error) {
     console.error(`=== LOAD JOB STATUS FAILED ===`);

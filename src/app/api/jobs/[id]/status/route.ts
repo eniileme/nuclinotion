@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readFile } from 'fs/promises';
+import { readFile, writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 
 const JOBS_DIR = '/tmp/jobs';
@@ -7,10 +7,31 @@ const JOBS_DIR = '/tmp/jobs';
 // In-memory fallback for serverless function isolation issues
 const inMemoryJobStatuses = new Map<string, any>();
 
+async function saveJobStatus(jobId: string, status: any) {
+  try {
+    // Store in memory first
+    inMemoryJobStatuses.set(jobId, status);
+    console.log(`Stored job status in memory for ${jobId}`);
+    
+    // Also try to store in file system
+    const statusPath = path.join(JOBS_DIR, `${jobId}_status.json`);
+    await writeFile(statusPath, JSON.stringify(status));
+    console.log(`Stored job status in file system for ${jobId}`);
+  } catch (error) {
+    console.error(`Failed to save job status for ${jobId}:`, error);
+  }
+}
+
 async function loadJobStatus(jobId: string): Promise<any | null> {
   try {
     console.log(`=== LOAD JOB STATUS START ===`);
     console.log(`Job ID: ${jobId}`);
+    
+    // First, try in-memory storage (for same function instance)
+    if (inMemoryJobStatuses.has(jobId)) {
+      console.log(`Found job status in memory for ${jobId}`);
+      return inMemoryJobStatuses.get(jobId);
+    }
     
     const statusPath = path.join(JOBS_DIR, `${jobId}_status.json`);
     console.log(`Looking for status file at: ${statusPath}`);
@@ -37,8 +58,12 @@ async function loadJobStatus(jobId: string): Promise<any | null> {
     
     const parsed = JSON.parse(statusData);
     console.log(`Status parsed successfully:`, parsed);
-    console.log(`=== LOAD JOB STATUS SUCCESS ===`);
     
+    // Store in memory for future requests
+    inMemoryJobStatuses.set(jobId, parsed);
+    console.log(`Stored job status in memory for ${jobId}`);
+    
+    console.log(`=== LOAD JOB STATUS SUCCESS ===`);
     return parsed;
   } catch (error) {
     console.error(`=== LOAD JOB STATUS FAILED ===`);
