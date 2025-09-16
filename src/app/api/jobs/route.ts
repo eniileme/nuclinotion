@@ -49,14 +49,30 @@ async function loadJobStatus(jobId: string): Promise<any | null> {
 
 export async function POST(request: NextRequest) {
   try {
-    // Clean up expired jobs on first request
-    await cleanupExpiredJobs();
+    console.log('=== JOB CREATION STARTED ===');
     
+    // Clean up expired jobs on first request
+    console.log('Cleaning up expired jobs...');
+    await cleanupExpiredJobs();
+    console.log('Cleanup completed');
+    
+    console.log('Parsing form data...');
     const formData = await request.formData();
     const notesZip = formData.get('notesZip') as File;
     const assetsZip = formData.get('assetsZip') as File;
     const clusteringK = formData.get('clusteringK') as string;
     const groupingStrategy = formData.get('groupingStrategy') as string;
+    
+    console.log('Form data parsed:', {
+      hasNotesZip: !!notesZip,
+      notesZipName: notesZip?.name,
+      notesZipSize: notesZip?.size,
+      hasAssetsZip: !!assetsZip,
+      assetsZipName: assetsZip?.name,
+      assetsZipSize: assetsZip?.size,
+      clusteringK,
+      groupingStrategy
+    });
     
     console.log('Received files:', {
       notesZip: notesZip?.name,
@@ -95,8 +111,13 @@ export async function POST(request: NextRequest) {
     };
     
     // Create processing pipeline
+    console.log('Creating ProcessingPipeline...');
     const pipeline = new ProcessingPipeline();
+    console.log('ProcessingPipeline created successfully');
+    
+    console.log('Getting job ID...');
     const jobId = pipeline.getJobId();
+    console.log(`Job ID generated: ${jobId}`);
     
     console.log(`Creating job ${jobId} with files:`, {
       notesSize: notesZip.size,
