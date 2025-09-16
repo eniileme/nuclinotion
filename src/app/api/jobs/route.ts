@@ -129,23 +129,41 @@ async function loadJobStatus(jobId: string): Promise<any | null> {
 }
 
 export async function POST(request: NextRequest) {
+  const debugInfo: any = {
+    steps: [],
+    errors: [],
+    timestamp: new Date().toISOString()
+  };
+  
   try {
     console.log('=== JOB CREATION STARTED ===');
-    await writeLog('=== JOB CREATION STARTED ===');
+    debugInfo.steps.push('Job creation started');
     
     // Clean up expired jobs on first request
     console.log('Cleaning up expired jobs...');
-    await writeLog('Cleaning up expired jobs...');
+    debugInfo.steps.push('Cleaning up expired jobs');
     await cleanupExpiredJobs();
     console.log('Cleanup completed');
-    await writeLog('Cleanup completed');
+    debugInfo.steps.push('Cleanup completed');
     
     console.log('Parsing form data...');
+    debugInfo.steps.push('Parsing form data');
     const formData = await request.formData();
     const notesZip = formData.get('notesZip') as File;
     const assetsZip = formData.get('assetsZip') as File;
     const clusteringK = formData.get('clusteringK') as string;
     const groupingStrategy = formData.get('groupingStrategy') as string;
+    
+    debugInfo.formData = {
+      hasNotesZip: !!notesZip,
+      notesZipName: notesZip?.name,
+      notesZipSize: notesZip?.size,
+      hasAssetsZip: !!assetsZip,
+      assetsZipName: assetsZip?.name,
+      assetsZipSize: assetsZip?.size,
+      clusteringK,
+      groupingStrategy
+    };
     
     console.log('Form data parsed:', {
       hasNotesZip: !!notesZip,
@@ -222,14 +240,14 @@ export async function POST(request: NextRequest) {
     console.log(`Initial status object created:`, initialStatus);
     
     console.log(`Calling saveJobStatus for job ${jobId}...`);
-    await writeLog(`Calling saveJobStatus for job ${jobId}...`);
+    debugInfo.steps.push(`Calling saveJobStatus for job ${jobId}`);
     try {
       await saveJobStatus(jobId, initialStatus);
       console.log(`saveJobStatus completed for job ${jobId}`);
-      await writeLog(`saveJobStatus completed for job ${jobId}`);
+      debugInfo.steps.push(`saveJobStatus completed for job ${jobId}`);
     } catch (saveError) {
       console.error(`CRITICAL: saveJobStatus failed for job ${jobId}:`, saveError);
-      await writeLog(`CRITICAL: saveJobStatus failed for job ${jobId}: ${saveError}`);
+      debugInfo.errors.push(`saveJobStatus failed: ${saveError}`);
       throw saveError; // Re-throw to prevent job creation from succeeding
     }
     
@@ -267,17 +285,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       jobId,
       debug: {
+        ...debugInfo,
         statusFileCreated: !!verificationStatus,
         statusFileContent: verificationStatus,
-        timestamp: new Date().toISOString(),
         message: verificationStatus ? 'Status file created successfully' : 'Status file creation failed'
       }
     });
     
   } catch (error) {
     console.error('Job creation failed:', error);
+    debugInfo.errors.push(`Job creation failed: ${error}`);
     return NextResponse.json(
-      { error: 'Failed to create job' },
+      { 
+        error: 'Failed to create job',
+        debug: debugInfo
+      },
       { status: 500 }
     );
   }
