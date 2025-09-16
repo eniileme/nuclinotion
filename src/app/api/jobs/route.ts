@@ -334,8 +334,13 @@ async function processJob(
   const jobId = pipeline.getJobId();
   
   try {
+    console.log(`=== BACKGROUND PROCESSING STARTED FOR JOB ${jobId} ===`);
+    await writeLog(`=== BACKGROUND PROCESSING STARTED FOR JOB ${jobId} ===`);
+    
     // Set up status callback
     pipeline.setStatusCallback(async (status) => {
+      console.log(`Job ${jobId}: Status update:`, status);
+      await writeLog(`Job ${jobId}: Status update: ${JSON.stringify(status)}`);
       await saveJobStatus(jobId, status);
     });
     
@@ -349,30 +354,40 @@ async function processJob(
       assetsSize: assetsZip?.size,
       tempDir
     });
+    await writeLog(`Job ${jobId}: Starting file processing - notesSize: ${notesZip.size}, assetsSize: ${assetsZip?.size || 0}, tempDir: ${tempDir}`);
     
     // Create temp directory first
     await mkdir(tempDir, { recursive: true });
     console.log(`Job ${jobId}: Created temp directory: ${tempDir}`);
+    await writeLog(`Job ${jobId}: Created temp directory: ${tempDir}`);
     
     // Write notes ZIP
     const notesBuffer = await notesZip.arrayBuffer();
     await writeFile(notesZipPath, Buffer.from(notesBuffer));
     console.log(`Job ${jobId}: Notes ZIP saved to ${notesZipPath}`);
+    await writeLog(`Job ${jobId}: Notes ZIP saved to ${notesZipPath}`);
     
     // Write assets ZIP if provided
     if (assetsZip && assetsZipPath) {
       const assetsBuffer = await assetsZip.arrayBuffer();
       await writeFile(assetsZipPath, Buffer.from(assetsBuffer));
       console.log(`Job ${jobId}: Assets ZIP saved to ${assetsZipPath}`);
+      await writeLog(`Job ${jobId}: Assets ZIP saved to ${assetsZipPath}`);
     }
     
     // Process the job
     console.log(`Job ${jobId}: Starting pipeline processing`);
+    await writeLog(`Job ${jobId}: Starting pipeline processing`);
     await pipeline.process(notesZipPath, assetsZipPath, options);
     console.log(`Job ${jobId}: Pipeline processing completed`);
+    await writeLog(`Job ${jobId}: Pipeline processing completed`);
+    
+    console.log(`=== BACKGROUND PROCESSING COMPLETED FOR JOB ${jobId} ===`);
+    await writeLog(`=== BACKGROUND PROCESSING COMPLETED FOR JOB ${jobId} ===`);
     
   } catch (error) {
     console.error(`Job ${jobId} processing failed:`, error);
+    await writeLog(`Job ${jobId} processing failed: ${error}`);
     const status = await loadJobStatus(jobId);
     if (status) {
       await saveJobStatus(jobId, {
