@@ -76,6 +76,7 @@ export default function HomePage() {
 
         const responseData = await response.json();
         console.log('Success response:', responseData);
+        console.log('Debug info:', responseData.debug);
         
         const { jobId } = responseData;
         console.log('Job ID:', jobId);

@@ -26,59 +26,42 @@ const JOBS_DIR = '/tmp/jobs';
 async function saveJobStatus(jobId: string, status: any) {
   try {
     console.log(`=== SAVE JOB STATUS START ===`);
-    await writeLog(`=== SAVE JOB STATUS START ===`);
     console.log(`Job ID: ${jobId}`);
-    await writeLog(`Job ID: ${jobId}`);
     console.log(`Status object:`, JSON.stringify(status, null, 2));
-    await writeLog(`Status object: ${JSON.stringify(status, null, 2)}`);
     
     console.log(`Creating directory: ${JOBS_DIR}`);
-    await writeLog(`Creating directory: ${JOBS_DIR}`);
     await mkdir(JOBS_DIR, { recursive: true });
     console.log(`Directory created successfully`);
-    await writeLog(`Directory created successfully`);
 
     const statusPath = path.join(JOBS_DIR, `${jobId}_status.json`);
     console.log(`Writing status to: ${statusPath}`);
-    await writeLog(`Writing status to: ${statusPath}`);
     
     const statusJson = JSON.stringify(status);
     console.log(`JSON string length: ${statusJson.length} characters`);
-    await writeLog(`JSON string length: ${statusJson.length} characters`);
     
     await writeFile(statusPath, statusJson);
     console.log(`File written successfully`);
-    await writeLog(`File written successfully`);
 
     // Verify the file was created immediately
     const fs = await import('fs/promises');
     const stats = await fs.stat(statusPath);
     console.log(`File verification: ${statusPath} exists, size: ${stats.size} bytes`);
-    await writeLog(`File verification: ${statusPath} exists, size: ${stats.size} bytes`);
     
     // Read back the file to verify content
     const readBack = await fs.readFile(statusPath, 'utf-8');
     console.log(`File read back successfully, content length: ${readBack.length}`);
-    await writeLog(`File read back successfully, content length: ${readBack.length}`);
     
     console.log(`=== SAVE JOB STATUS SUCCESS ===`);
-    await writeLog(`=== SAVE JOB STATUS SUCCESS ===`);
+    return true; // Explicit success return
 
   } catch (error) {
     console.error(`=== SAVE JOB STATUS FAILED ===`);
-    await writeLog(`=== SAVE JOB STATUS FAILED ===`);
     console.error(`Job ID: ${jobId}`);
-    await writeLog(`Job ID: ${jobId}`);
     console.error(`Error:`, error);
-    await writeLog(`Error: ${error}`);
     console.error(`Error details:`, {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined
     });
-    await writeLog(`Error details: ${JSON.stringify({
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
-    })}`);
     throw error; // Re-throw to ensure the error is caught
   }
 }

@@ -6,11 +6,45 @@ const JOBS_DIR = '/tmp/jobs';
 
 async function loadJobStatus(jobId: string): Promise<any | null> {
   try {
+    console.log(`=== LOAD JOB STATUS START ===`);
+    console.log(`Job ID: ${jobId}`);
+    
     const statusPath = path.join(JOBS_DIR, `${jobId}_status.json`);
+    console.log(`Looking for status file at: ${statusPath}`);
+    
+    // Check if directory exists
+    const fs = await import('fs/promises');
+    try {
+      const dirStats = await fs.stat(JOBS_DIR);
+      console.log(`Jobs directory exists: ${JOBS_DIR}, isDirectory: ${dirStats.isDirectory()}`);
+    } catch (dirError) {
+      console.log(`Jobs directory does not exist: ${JOBS_DIR}`);
+    }
+    
+    // List files in directory
+    try {
+      const files = await fs.readdir(JOBS_DIR);
+      console.log(`Files in jobs directory:`, files);
+    } catch (listError) {
+      console.log(`Cannot list files in jobs directory:`, listError);
+    }
+    
     const statusData = await readFile(statusPath, 'utf-8');
-    return JSON.parse(statusData);
+    console.log(`Status file read successfully, content length: ${statusData.length}`);
+    
+    const parsed = JSON.parse(statusData);
+    console.log(`Status parsed successfully:`, parsed);
+    console.log(`=== LOAD JOB STATUS SUCCESS ===`);
+    
+    return parsed;
   } catch (error) {
-    console.log(`Job status not found for ${jobId}:`, error instanceof Error ? error.message : String(error));
+    console.error(`=== LOAD JOB STATUS FAILED ===`);
+    console.error(`Job ID: ${jobId}`);
+    console.error(`Error:`, error);
+    console.error(`Error details:`, {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return null;
   }
 }
