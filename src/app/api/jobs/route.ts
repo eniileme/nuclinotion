@@ -5,47 +5,80 @@ import { ProcessingPipeline } from '@/lib/pipeline';
 import { ProcessingOptions } from '@/lib/types';
 import { cleanupExpiredJobs } from '@/lib/fsx';
 
+// File-based logging
+const LOGS_DIR = '/tmp/logs';
+const LOG_FILE = path.join(LOGS_DIR, 'app.log');
+
+async function writeLog(message: string) {
+  try {
+    await mkdir(LOGS_DIR, { recursive: true });
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] ${message}\n`;
+    await writeFile(LOG_FILE, logEntry, { flag: 'a' });
+  } catch (error) {
+    console.error('Failed to write log:', error);
+  }
+}
+
 // File-based job status storage (since serverless functions don't share memory)
 const JOBS_DIR = '/tmp/jobs';
 
 async function saveJobStatus(jobId: string, status: any) {
   try {
     console.log(`=== SAVE JOB STATUS START ===`);
+    await writeLog(`=== SAVE JOB STATUS START ===`);
     console.log(`Job ID: ${jobId}`);
+    await writeLog(`Job ID: ${jobId}`);
     console.log(`Status object:`, JSON.stringify(status, null, 2));
+    await writeLog(`Status object: ${JSON.stringify(status, null, 2)}`);
     
     console.log(`Creating directory: ${JOBS_DIR}`);
+    await writeLog(`Creating directory: ${JOBS_DIR}`);
     await mkdir(JOBS_DIR, { recursive: true });
     console.log(`Directory created successfully`);
+    await writeLog(`Directory created successfully`);
 
     const statusPath = path.join(JOBS_DIR, `${jobId}_status.json`);
     console.log(`Writing status to: ${statusPath}`);
+    await writeLog(`Writing status to: ${statusPath}`);
     
     const statusJson = JSON.stringify(status);
     console.log(`JSON string length: ${statusJson.length} characters`);
+    await writeLog(`JSON string length: ${statusJson.length} characters`);
     
     await writeFile(statusPath, statusJson);
     console.log(`File written successfully`);
+    await writeLog(`File written successfully`);
 
     // Verify the file was created immediately
     const fs = await import('fs/promises');
     const stats = await fs.stat(statusPath);
     console.log(`File verification: ${statusPath} exists, size: ${stats.size} bytes`);
+    await writeLog(`File verification: ${statusPath} exists, size: ${stats.size} bytes`);
     
     // Read back the file to verify content
     const readBack = await fs.readFile(statusPath, 'utf-8');
     console.log(`File read back successfully, content length: ${readBack.length}`);
+    await writeLog(`File read back successfully, content length: ${readBack.length}`);
     
     console.log(`=== SAVE JOB STATUS SUCCESS ===`);
+    await writeLog(`=== SAVE JOB STATUS SUCCESS ===`);
 
   } catch (error) {
     console.error(`=== SAVE JOB STATUS FAILED ===`);
+    await writeLog(`=== SAVE JOB STATUS FAILED ===`);
     console.error(`Job ID: ${jobId}`);
+    await writeLog(`Job ID: ${jobId}`);
     console.error(`Error:`, error);
+    await writeLog(`Error: ${error}`);
     console.error(`Error details:`, {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined
     });
+    await writeLog(`Error details: ${JSON.stringify({
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    })}`);
     throw error; // Re-throw to ensure the error is caught
   }
 }
@@ -98,11 +131,14 @@ async function loadJobStatus(jobId: string): Promise<any | null> {
 export async function POST(request: NextRequest) {
   try {
     console.log('=== JOB CREATION STARTED ===');
+    await writeLog('=== JOB CREATION STARTED ===');
     
     // Clean up expired jobs on first request
     console.log('Cleaning up expired jobs...');
+    await writeLog('Cleaning up expired jobs...');
     await cleanupExpiredJobs();
     console.log('Cleanup completed');
+    await writeLog('Cleanup completed');
     
     console.log('Parsing form data...');
     const formData = await request.formData();
@@ -186,11 +222,14 @@ export async function POST(request: NextRequest) {
     console.log(`Initial status object created:`, initialStatus);
     
     console.log(`Calling saveJobStatus for job ${jobId}...`);
+    await writeLog(`Calling saveJobStatus for job ${jobId}...`);
     try {
       await saveJobStatus(jobId, initialStatus);
       console.log(`saveJobStatus completed for job ${jobId}`);
+      await writeLog(`saveJobStatus completed for job ${jobId}`);
     } catch (saveError) {
       console.error(`CRITICAL: saveJobStatus failed for job ${jobId}:`, saveError);
+      await writeLog(`CRITICAL: saveJobStatus failed for job ${jobId}: ${saveError}`);
       throw saveError; // Re-throw to prevent job creation from succeeding
     }
     
