@@ -78,8 +78,15 @@ export default function HomePage() {
         console.log('Success response:', responseData);
         console.log('Debug info:', responseData.debug);
         
-        const { jobId } = responseData;
+        const { jobId, status } = responseData;
         console.log('Job ID:', jobId);
+        console.log('Initial status:', status);
+        
+        // Store the initial status in sessionStorage for the job page
+        if (status) {
+          sessionStorage.setItem(`job_${jobId}_status`, JSON.stringify(status));
+        }
+        
         router.push(`/job/${jobId}`);
       } catch (error) {
         console.error('Processing failed:', error);

@@ -23,15 +23,37 @@ export default function JobPage() {
   useEffect(() => {
     if (!jobId) return;
 
+    // First, try to get the initial status from sessionStorage
+    const storedStatus = sessionStorage.getItem(`job_${jobId}_status`);
+    if (storedStatus) {
+      try {
+        const initialStatus = JSON.parse(storedStatus);
+        setStatus(initialStatus);
+        console.log('Loaded initial status from sessionStorage:', initialStatus);
+      } catch (err) {
+        console.error('Failed to parse stored status:', err);
+      }
+    }
+
     const pollStatus = async () => {
       try {
-        const response = await fetch(`/api/jobs/${jobId}/status`);
+        // Try the simple status endpoint first
+        let response = await fetch(`/api/jobs/${jobId}/status-simple`);
         if (!response.ok) {
-          throw new Error('Failed to fetch job status');
+          // Fallback to original status endpoint
+          response = await fetch(`/api/jobs/${jobId}/status`);
+        }
+        
+        if (!response.ok) {
+          console.log('Status endpoint not available, using stored status');
+          return; // Don't throw error, just use stored status
         }
         
         const jobStatus = await response.json();
         setStatus(jobStatus);
+        
+        // Update sessionStorage with latest status
+        sessionStorage.setItem(`job_${jobId}_status`, JSON.stringify(jobStatus));
         
         if (jobStatus.status === 'ready' && jobStatus.result) {
           setSections(jobStatus.result.sections || []);
@@ -41,17 +63,21 @@ export default function JobPage() {
           setError(jobStatus.error || 'Unknown error occurred');
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch status');
+        console.log('Status polling failed, using stored status:', err);
+        // Don't set error, just continue with stored status
       }
     };
 
-    // Poll immediately
-    pollStatus();
+    // Poll after a short delay to allow processing to start
+    const initialTimeout = setTimeout(pollStatus, 1000);
 
     // Set up polling interval
-    const interval = setInterval(pollStatus, 2000);
+    const interval = setInterval(pollStatus, 3000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
   }, [jobId]);
 
   const handleDownload = async () => {
