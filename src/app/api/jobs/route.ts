@@ -4,6 +4,7 @@ import path from 'path';
 import { ProcessingPipeline } from '@/lib/pipeline';
 import { ProcessingOptions } from '@/lib/types';
 import { cleanupExpiredJobs } from '@/lib/fsx';
+import { jobStatuses } from './[id]/status-simple/route';
 
 // File-based logging
 const LOGS_DIR = '/tmp/logs';
@@ -34,6 +35,7 @@ async function saveJobStatus(jobId: string, status: any) {
     
     // Store in memory first (for immediate access)
     inMemoryJobStatuses.set(jobId, status);
+    jobStatuses.set(jobId, status); // Also store in simple memory store
     console.log(`Stored job status in memory for ${jobId}`);
     
     console.log(`Creating directory: ${JOBS_DIR}`);
@@ -293,9 +295,15 @@ export async function POST(request: NextRequest) {
       await writeLog(`CRITICAL: Status file verification FAILED for job ${jobId} - file was not created!`);
     }
     
-    // Return detailed response with debugging info
+    // Return detailed response with debugging info and initial status
     return NextResponse.json({ 
       jobId,
+      status: verificationStatus || {
+        status: 'processing',
+        progress: 0,
+        currentStep: 'initializing',
+        createdAt: new Date().toISOString()
+      },
       debug: {
         ...debugInfo,
         statusFileCreated: !!verificationStatus,
