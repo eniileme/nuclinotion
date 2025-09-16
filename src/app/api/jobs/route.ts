@@ -245,6 +245,18 @@ export async function POST(request: NextRequest) {
       await saveJobStatus(jobId, initialStatus);
       console.log(`saveJobStatus completed for job ${jobId}`);
       debugInfo.steps.push(`saveJobStatus completed for job ${jobId}`);
+      
+      // Immediately verify the file was created
+      const fs = await import('fs/promises');
+      const statusPath = path.join(JOBS_DIR, `${jobId}_status.json`);
+      try {
+        const stats = await fs.stat(statusPath);
+        debugInfo.steps.push(`Status file verified: ${statusPath} exists, size: ${stats.size} bytes`);
+      } catch (verifyError) {
+        debugInfo.errors.push(`Status file verification failed: ${verifyError}`);
+        throw new Error(`Status file was not created: ${verifyError}`);
+      }
+      
     } catch (saveError) {
       console.error(`CRITICAL: saveJobStatus failed for job ${jobId}:`, saveError);
       debugInfo.errors.push(`saveJobStatus failed: ${saveError}`);
