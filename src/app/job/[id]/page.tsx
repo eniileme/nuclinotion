@@ -25,14 +25,18 @@ export default function JobPage() {
 
     // First, try to get the initial status from sessionStorage
     const storedStatus = sessionStorage.getItem(`job_${jobId}_status`);
+    console.log('Stored status from sessionStorage:', storedStatus);
     if (storedStatus) {
       try {
         const initialStatus = JSON.parse(storedStatus);
         setStatus(initialStatus);
         console.log('Loaded initial status from sessionStorage:', initialStatus);
+        console.log('Status type:', typeof initialStatus.status, 'Value:', initialStatus.status);
       } catch (err) {
         console.error('Failed to parse stored status:', err);
       }
+    } else {
+      console.log('No stored status found in sessionStorage');
     }
 
     const pollStatus = async () => {
@@ -153,8 +157,35 @@ export default function JobPage() {
 
     // Start progress simulation if we have a processing status
     let progressCleanup: (() => void) | undefined;
-    if (status && status.status === 'processing') {
+    if (status && (status.status === 'processing' || status.status === 'uploading')) {
+      console.log('Starting progress simulation for status:', status.status);
       progressCleanup = simulateProgress();
+    } else if (!status) {
+      // If no status yet, start simulation after a delay
+      console.log('No status yet, will start simulation after delay');
+      const delayedSimulation = setTimeout(() => {
+        if (!status) {
+          console.log('Starting delayed progress simulation');
+          const mockStatus = {
+            id: jobId,
+            status: 'processing' as const,
+            progress: 0,
+            message: 'Initializing...',
+            createdAt: new Date(),
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+          };
+          setStatus(mockStatus);
+          sessionStorage.setItem(`job_${jobId}_status`, JSON.stringify(mockStatus));
+          progressCleanup = simulateProgress();
+        }
+      }, 2000);
+      
+      return () => {
+        clearTimeout(delayedSimulation);
+        if (progressCleanup) {
+          progressCleanup();
+        }
+      };
     }
 
     // Poll after a short delay to allow processing to start
