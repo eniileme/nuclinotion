@@ -138,8 +138,13 @@ export async function POST(request: NextRequest) {
     console.log(`Initial status object created:`, initialStatus);
     
     console.log(`Calling saveJobStatus for job ${jobId}...`);
-    await saveJobStatus(jobId, initialStatus);
-    console.log(`saveJobStatus completed for job ${jobId}`);
+    try {
+      await saveJobStatus(jobId, initialStatus);
+      console.log(`saveJobStatus completed for job ${jobId}`);
+    } catch (saveError) {
+      console.error(`CRITICAL: saveJobStatus failed for job ${jobId}:`, saveError);
+      throw saveError; // Re-throw to prevent job creation from succeeding
+    }
     
     console.log(`Job ${jobId} status initialized and saved to file`);
     
@@ -157,6 +162,15 @@ export async function POST(request: NextRequest) {
     });
     
     console.log(`Job ${jobId} created successfully, returning jobId`);
+    
+    // Verify the status file was actually created
+    console.log(`Verifying status file exists for job ${jobId}...`);
+    const verificationStatus = await loadJobStatus(jobId);
+    if (verificationStatus) {
+      console.log(`Status file verification successful for job ${jobId}`);
+    } else {
+      console.error(`CRITICAL: Status file verification FAILED for job ${jobId} - file was not created!`);
+    }
     
     return NextResponse.json({ jobId });
     
