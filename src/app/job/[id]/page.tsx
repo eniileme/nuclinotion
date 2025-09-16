@@ -74,8 +74,11 @@ export default function JobPage() {
 
     // Simulate processing progress since we can't rely on server-side status updates
     const simulateProgress = () => {
-      const currentStatus = status;
-      if (!currentStatus || currentStatus.status !== 'processing') return;
+      console.log('simulateProgress called with status:', status);
+      if (!status || (status.status !== 'processing' && status.status !== 'uploading')) {
+        console.log('simulateProgress: Invalid status, returning');
+        return;
+      }
       
       // Simulate progress updates
       const progressSteps: Array<{
@@ -99,8 +102,9 @@ export default function JobPage() {
       const progressInterval = setInterval(() => {
         if (currentStep < progressSteps.length) {
           const step = progressSteps[currentStep];
+          console.log(`Progress step ${currentStep}: ${step.progress}% - ${step.message}`);
           const newStatus = {
-            ...currentStatus,
+            ...status,
             progress: step.progress,
             message: step.message,
             status: step.status || 'processing'
