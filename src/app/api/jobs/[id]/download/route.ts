@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
-import { jobStatuses } from '../../route';
+import path from 'path';
+
+const JOBS_DIR = '/tmp/jobs';
+
+async function loadJobStatus(jobId: string): Promise<any | null> {
+  try {
+    const statusPath = path.join(JOBS_DIR, `${jobId}_status.json`);
+    const statusData = await readFile(statusPath, 'utf-8');
+    return JSON.parse(statusData);
+  } catch (error) {
+    console.log(`Job status not found for ${jobId}:`, error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
 
 export async function GET(
   request: NextRequest,
@@ -8,7 +21,7 @@ export async function GET(
 ) {
   try {
     const { id: jobId } = await params;
-    const status = jobStatuses.get(jobId);
+    const status = await loadJobStatus(jobId);
     
     if (!status) {
       return NextResponse.json(

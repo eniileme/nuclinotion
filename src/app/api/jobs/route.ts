@@ -1,12 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
+import { writeFile, readFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { ProcessingPipeline } from '@/lib/pipeline';
 import { ProcessingOptions } from '@/lib/types';
 import { cleanupExpiredJobs } from '@/lib/fsx';
 
-// Global job status storage (in production, use Redis or database)
-const jobStatuses = new Map<string, any>();
+// File-based job status storage (since serverless functions don't share memory)
+const JOBS_DIR = '/tmp/jobs';
+
+async function saveJobStatus(jobId: string, status: any) {
+  try {
+    await mkdir(JOBS_DIR, { recursive: true });
+    const statusPath = path.join(JOBS_DIR, `${jobId}_status.json`);
+    await writeFile(statusPath, JSON.stringify(status));
+    console.log(`Job status saved to: ${statusPath}`);
+  } catch (error) {
+    console.error(`Failed to save job status for ${jobId}:`, error);
+  }
+}
+
+async function loadJobStatus(jobId: string): Promise<any | null> {
+  try {
+    const statusPath = path.join(JOBS_DIR, `${jobId}_status.json`);
+    const statusData = await readFile(statusPath, 'utf-8');
+    return JSON.parse(statusData);
+  } catch (error) {
+    console.log(`Job status not found for ${jobId}:`, error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -74,16 +96,16 @@ export async function POST(request: NextRequest) {
       currentStep: 'initializing',
       createdAt: new Date().toISOString()
     };
-    jobStatuses.set(jobId, initialStatus);
+    await saveJobStatus(jobId, initialStatus);
     
-    console.log(`Job ${jobId} status initialized:`, jobStatuses.get(jobId));
+    console.log(`Job ${jobId} status initialized and saved to file`);
     
     // Start processing in background
-    processJob(pipeline, notesZip, assetsZip, options).catch(error => {
+    processJob(pipeline, notesZip, assetsZip, options).catch(async (error) => {
       console.error(`Job ${jobId} failed:`, error);
-      const status = jobStatuses.get(jobId);
+      const status = await loadJobStatus(jobId);
       if (status) {
-        jobStatuses.set(jobId, {
+        await saveJobStatus(jobId, {
           ...status,
           status: 'error',
           error: error instanceof Error ? error.message : String(error)
@@ -92,7 +114,6 @@ export async function POST(request: NextRequest) {
     });
     
     console.log(`Job ${jobId} created successfully, returning jobId`);
-    console.log(`Current jobStatuses map:`, Array.from(jobStatuses.keys()));
     
     return NextResponse.json({ jobId });
     
@@ -115,8 +136,8 @@ async function processJob(
   
   try {
     // Set up status callback
-    pipeline.setStatusCallback((status) => {
-      jobStatuses.set(jobId, status);
+    pipeline.setStatusCallback(async (status) => {
+      await saveJobStatus(jobId, status);
     });
     
     // Save uploaded files to temp directory
@@ -149,9 +170,9 @@ async function processJob(
     
   } catch (error) {
     console.error(`Job ${jobId} processing failed:`, error);
-    const status = jobStatuses.get(jobId);
+    const status = await loadJobStatus(jobId);
     if (status) {
-      jobStatuses.set(jobId, {
+      await saveJobStatus(jobId, {
         ...status,
         status: 'error',
         error: error instanceof Error ? error.message : String(error)
@@ -172,17 +193,23 @@ export async function GET(request: NextRequest) {
       const jobId = pipeline.getJobId();
       
       // Store initial status
-      jobStatuses.set(jobId, pipeline.getStatus());
+      const initialStatus = {
+        status: 'processing',
+        progress: 0,
+        currentStep: 'initializing',
+        createdAt: new Date().toISOString()
+      };
+      await saveJobStatus(jobId, initialStatus);
       
       // Start sample processing in background
-      processSampleJob(pipeline).catch(error => {
+      processSampleJob(pipeline).catch(async (error) => {
         console.error(`Sample job ${jobId} failed:`, error);
-        const status = jobStatuses.get(jobId);
+        const status = await loadJobStatus(jobId);
         if (status) {
-          jobStatuses.set(jobId, {
+          await saveJobStatus(jobId, {
             ...status,
             status: 'error',
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           });
         }
       });
@@ -206,8 +233,8 @@ async function processSampleJob(pipeline: ProcessingPipeline): Promise<void> {
   
   try {
     // Set up status callback
-    pipeline.setStatusCallback((status) => {
-      jobStatuses.set(jobId, status);
+    pipeline.setStatusCallback(async (status) => {
+      await saveJobStatus(jobId, status);
     });
     
     // Create sample data
@@ -226,9 +253,9 @@ async function processSampleJob(pipeline: ProcessingPipeline): Promise<void> {
     
   } catch (error) {
     console.error(`Sample job ${jobId} processing failed:`, error);
-    const status = jobStatuses.get(jobId);
+    const status = await loadJobStatus(jobId);
     if (status) {
-      jobStatuses.set(jobId, {
+      await saveJobStatus(jobId, {
         ...status,
         status: 'error',
         error: error instanceof Error ? error.message : String(error)
@@ -435,5 +462,4 @@ System design and technology choices.
   await writeFile(path.join(tempDir, 'sample_assets.zip'), assetsZipBuffer);
 }
 
-// Export job statuses for other routes
-export { jobStatuses };
+// File-based job storage is now used instead of in-memory jobStatuses
