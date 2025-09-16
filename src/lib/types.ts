@@ -56,7 +56,7 @@ export interface Section {
 
 export interface JobStatus {
   id: string;
-  status: 'uploading' | 'scanning' | 'clustering' | 'rewriting' | 'packaging' | 'ready' | 'error';
+  status: 'uploading' | 'processing' | 'scanning' | 'clustering' | 'rewriting' | 'packaging' | 'ready' | 'error';
   progress: number;
   message: string;
   error?: string;
