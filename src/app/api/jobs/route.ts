@@ -10,12 +10,29 @@ const JOBS_DIR = '/tmp/jobs';
 
 async function saveJobStatus(jobId: string, status: any) {
   try {
+    console.log(`Attempting to save job status for ${jobId}...`);
+    console.log(`Creating directory: ${JOBS_DIR}`);
     await mkdir(JOBS_DIR, { recursive: true });
+    console.log(`Directory created successfully`);
+    
     const statusPath = path.join(JOBS_DIR, `${jobId}_status.json`);
+    console.log(`Writing status to: ${statusPath}`);
+    console.log(`Status data:`, JSON.stringify(status, null, 2));
+    
     await writeFile(statusPath, JSON.stringify(status));
-    console.log(`Job status saved to: ${statusPath}`);
+    console.log(`Job status saved successfully to: ${statusPath}`);
+    
+    // Verify the file was created
+    const fs = await import('fs/promises');
+    const stats = await fs.stat(statusPath);
+    console.log(`File verification: ${statusPath} exists, size: ${stats.size} bytes`);
+    
   } catch (error) {
     console.error(`Failed to save job status for ${jobId}:`, error);
+    console.error(`Error details:`, {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
   }
 }
 
@@ -90,13 +107,18 @@ export async function POST(request: NextRequest) {
     });
     
     // Store initial status
+    console.log(`About to create initial status for job ${jobId}...`);
     const initialStatus = {
       status: 'processing',
       progress: 0,
       currentStep: 'initializing',
       createdAt: new Date().toISOString()
     };
+    console.log(`Initial status object created:`, initialStatus);
+    
+    console.log(`Calling saveJobStatus for job ${jobId}...`);
     await saveJobStatus(jobId, initialStatus);
+    console.log(`saveJobStatus completed for job ${jobId}`);
     
     console.log(`Job ${jobId} status initialized and saved to file`);
     
