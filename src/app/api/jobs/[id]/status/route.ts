@@ -4,6 +4,9 @@ import path from 'path';
 
 const JOBS_DIR = '/tmp/jobs';
 
+// In-memory fallback for serverless function isolation issues
+const inMemoryJobStatuses = new Map<string, any>();
+
 async function loadJobStatus(jobId: string): Promise<any | null> {
   try {
     console.log(`=== LOAD JOB STATUS START ===`);

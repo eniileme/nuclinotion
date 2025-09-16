@@ -325,6 +325,10 @@ async function processJob(
       tempDir
     });
     
+    // Create temp directory first
+    await mkdir(tempDir, { recursive: true });
+    console.log(`Job ${jobId}: Created temp directory: ${tempDir}`);
+    
     // Write notes ZIP
     const notesBuffer = await notesZip.arrayBuffer();
     await writeFile(notesZipPath, Buffer.from(notesBuffer));
