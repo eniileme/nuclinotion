@@ -26,46 +26,67 @@ export default function HomePage() {
     setAssetsFilePath(filePath);
   };
 
-  const handleProcessFiles = async () => {
-    if (!notesFile) {
-      alert('Please upload your notes ZIP file first.');
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      // Create FormData for regular notes upload
-      const formData = new FormData();
-      formData.append('notesZip', notesFile);
-      if (assetsFilePath) {
-        // For chunked assets, we need to read the file and add it to FormData
-        const response = await fetch(assetsFilePath);
-        const blob = await response.blob();
-        formData.append('assetsZip', blob, 'assets.zip');
-      }
-      formData.append('clusteringK', processingOptions.clusteringK.toString());
-      formData.append('groupingStrategy', processingOptions.groupingStrategy);
-
-      const response = await fetch('/api/jobs', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create job');
+    const handleProcessFiles = async () => {
+      if (!notesFile) {
+        alert('Please upload your notes ZIP file first.');
+        return;
       }
 
-      const { jobId } = await response.json();
-      router.push(`/job/${jobId}`);
-    } catch (error) {
-      console.error('Processing failed:', error);
-      alert(`Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      setIsLoading(true);
+
+      try {
+        console.log('=== UPLOAD STARTED ===');
+        console.log('Notes file:', notesFile.name, notesFile.size);
+        
+        // Create FormData for regular notes upload
+        const formData = new FormData();
+        formData.append('notesZip', notesFile);
+        if (assetsFilePath) {
+          // For chunked assets, we need to read the file and add it to FormData
+          const response = await fetch(assetsFilePath);
+          const blob = await response.blob();
+          formData.append('assetsZip', blob, 'assets.zip');
+        }
+        formData.append('clusteringK', processingOptions.clusteringK.toString());
+        formData.append('groupingStrategy', processingOptions.groupingStrategy);
+
+        console.log('FormData created, making request to /api/jobs');
+        console.log('Request details:', {
+          method: 'POST',
+          url: '/api/jobs',
+          formDataKeys: Array.from(formData.keys())
+        });
+
+        const response = await fetch('/api/jobs', {
+          method: 'POST',
+          body: formData,
+        });
+
+        console.log('Response received:', {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Error response:', errorData);
+          throw new Error(errorData.error || 'Failed to create job');
+        }
+
+        const responseData = await response.json();
+        console.log('Success response:', responseData);
+        
+        const { jobId } = responseData;
+        console.log('Job ID:', jobId);
+        router.push(`/job/${jobId}`);
+      } catch (error) {
+        console.error('Processing failed:', error);
+        alert(`Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
   const handleSampleData = async () => {
     setIsLoading(true);
