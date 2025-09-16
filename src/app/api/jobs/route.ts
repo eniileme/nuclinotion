@@ -249,17 +249,30 @@ export async function POST(request: NextRequest) {
     });
     
     console.log(`Job ${jobId} created successfully, returning jobId`);
+    await writeLog(`Job ${jobId} created successfully, returning jobId`);
     
     // Verify the status file was actually created
     console.log(`Verifying status file exists for job ${jobId}...`);
+    await writeLog(`Verifying status file exists for job ${jobId}...`);
     const verificationStatus = await loadJobStatus(jobId);
     if (verificationStatus) {
       console.log(`Status file verification successful for job ${jobId}`);
+      await writeLog(`Status file verification successful for job ${jobId}`);
     } else {
       console.error(`CRITICAL: Status file verification FAILED for job ${jobId} - file was not created!`);
+      await writeLog(`CRITICAL: Status file verification FAILED for job ${jobId} - file was not created!`);
     }
     
-    return NextResponse.json({ jobId });
+    // Return detailed response with debugging info
+    return NextResponse.json({ 
+      jobId,
+      debug: {
+        statusFileCreated: !!verificationStatus,
+        statusFileContent: verificationStatus,
+        timestamp: new Date().toISOString(),
+        message: verificationStatus ? 'Status file created successfully' : 'Status file creation failed'
+      }
+    });
     
   } catch (error) {
     console.error('Job creation failed:', error);
